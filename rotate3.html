@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>360 繞圈旋轉和自轉圖片</title>
+  <style>
+    #image {
+      width: 200px;
+      height: 200px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation: rotate-around 1s linear infinite;
+    }
+
+    @keyframes rotate-around {
+      from {
+        transform: rotate(0deg) translateZ(0);
+      }
+      to {
+        transform: rotate(360deg) translateZ(100px);
+      }
+    }
+
+    #image img {
+      animation: rotate 0.3s linear infinite;
+    }
+
+    @keyframes rotate {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="image">
+    <img src="image.jpg" alt="圖片">
+  </div>
+</body>
+</html>
