@@ -8,10 +8,14 @@
   <div id="number"></div>
   <script>
     let i = 0;
+    let maximum = 1000000;
+    let num =0;
     const intervalId = setInterval(() => {
-      if (i <= 1000000) {
+      if (i <= maximum) {
+        num = i/maximum*100;
+        num = num.toFixed(3);
         //document.getElementById('number').textContent = i;
-        document.getElementById('loop-count').textContent = `回圈數 = ${i}`;
+        document.getElementById('loop-count').textContent = `能量累積 = ${num}%`;
 let s = i % 2 === 0 ? "" : "🙇‍♂️🙇‍♂️🙇‍♂️❤️❤️❤️   一心禮拜南無十方三世一切如來應供正遍知明行足善逝世間解無上士天人師佛世尊一心再拜🧎🧎🧎 🌸🌸🌸💡💡💡🍵🍵🍵💎💎💎🧥🧥🧥✈️✈️✈️🚙🚙🚙🍎🍎🍎🌏🌏🌏☀️☀️☀️🌕🌕🌕🧧🧧🧧🎹🎹🎹🎁🎁🎁南無阿彌陀佛南無阿彌陀佛南無阿彌陀佛南無阿彌陀佛南無阿彌陀佛南無阿彌陀佛南無阿彌陀佛";
 //document.getElementById('number').textContent = s;
 
