@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>顯示圖片</title>
+  <style>
+    .image-container {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="output"></div>
+
+  <script>
+    const imageUrl = "https://iamjwjwo.github.io/mantra/images/20250331-2.jpg";
+    const totalImages = 24;
+    const delay = 100; // 毫秒
+
+    let count = 0;
+    const container = document.getElementById("output");
+
+    const interval = setInterval(() => {
+      if (count >= totalImages) {
+        clearInterval(interval);
+        return;
+      }
+
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.width = 200;
+      img.className = "image-container";
+
+      container.appendChild(img);
+      count++;
+    }, delay);
+  </script>
+</body>
+</html>
