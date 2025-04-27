@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>循環逐字顯示</title>
+  <style>
+    #textOutput {
+      font-size: 18px;
+      font-family: "Courier New", monospace;
+      white-space: normal;         /* 自動換行 */
+      word-break: break-word;      /* 長句斷行 */
+      max-width: 90vw;             /* 不超過螢幕寬度 */
+    }
+  </style>
+</head>
+<body>
+  <div id="textOutput"></div>
+
+  <script>
+     const fullText = "omavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacanaomavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacana一心禮拜omavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacana南無滅除一切有為法及種種迷幻定解威德生如來omavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacana一心再拜omavamramhamkhamomavirahumkhamomarapacanasyscallomavamramhamkhamomavirahumkhamomarapacanarunomavamramhamkhamomavirahumkhamomarapacananamahsarvatathagatebhyavisvamukhebhyasarvarthaaaamah願以此功德普及於一切，我等與眾生皆共成佛道。";
+
+    const interval = 1; // 毫秒（0.005秒）
+    const target = document.getElementById("textOutput");
+
+    function startTyping() {
+      target.textContent = ""; // 清空內容
+      let index = 0;
+
+      const typeEffect = setInterval(() => {
+        if (index < fullText.length) {
+          target.textContent += fullText[index];
+          index++;
+        } else {
+          clearInterval(typeEffect);
+          // 等一下再重啟，避免太快清空
+          setTimeout(startTyping, 500); // 顯示完後停留1秒再重來
+        }
+      }, interval);
+    }
+
+    // 開始執行
+    startTyping();
+  </script>
+</body>
+</html>
+
+
+
