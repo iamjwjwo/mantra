@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>標點 Emoji 插入器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+        h1 { color: #333; text-align: center; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        textarea { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; resize: vertical; min-height: 150px; font-size: 16px; }
+        .button-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: background-color 0.3s; }
+        button.copy-button { background-color: #28a745; }
+        button:hover { opacity: 0.9; }
+        #output { border: 2px dashed #007bff; padding: 15px; margin-top: 20px; background-color: #e9f7ff; border-radius: 5px; min-height: 50px; word-wrap: break-word; white-space: pre-wrap; font-size: 18px; line-height: 1.6; }
+        .hash-info { margin-top: 20px; font-size: 14px; color: #777; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>基於語義停頓的 Emoji 插入器</h1>
+
+    <label for="inputText">輸入您的文章：</label>
+    <textarea id="inputText" placeholder="請貼上您想處理的文章..."></textarea>
+
+    <div class="button-group">
+        <button onclick="processText()">插入 Emoji 並生成新文本</button>
+        <button class="copy-button" onclick="copyOutput()" id="copyButton" disabled>全選並複製結果</button>
+    </div>
+
+    <div class="hash-info">
+        <p>雜湊碼來源 (128 Hex 字符): <code id="hashcode-display"></code></p>
+        <p>**新邏輯:** **只在** `，` `,` `。` `.` **四種標點後插入 Emoji**。Emoji 選擇基於雜湊碼每 3 個 Hex 字符的值對應至預設列表。</p>
+    </div>
+
+    <label for="output">輸出結果：</label>
+    <div id="output">點擊「插入 Emoji」按鈕後將在此顯示結果...</div>
+</div>
+
+<script>
+    // 1. 硬編碼的雜湊碼 (128 個 Hex 字符)
+    const HASH_CODE = "ccd018f28741130b8713538d1eebaa6dd24707f6ccd018f28741130b8713538d1eebaa6dd24707f6ccd018f28741130b8713538d1eebaa6dd24707f6ccd018f28741130b8713538d1eebaa6dd24707f6";
+    
+    // 2. 預設的 Emoji 列表 (64 個)
+    const EMOJI_LIST = [
+        "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "🫠", "😉", "😊", "😇", "🥰", "😍", 
+        "🤩", "😘", "😗", "🥲", "🫡", "🤔", "🤫", "😶", "🫠", "😮", "🥱", "😴", "😵", "🤯", "🥶", "🥹",
+        "💯", "🔥", "✨", "💡", "📚", "⚙️", "🔗", "🔍", "📐", "📈", "📉", "🚀", "🌟", "🎉", "🎁", "🎈",
+        "🖥️", "💻", "💾", "💽", "🌐", "🛠️", "🔑", "🔒", "🔓", "🛡️", "🔬", "🧮", "🔭", "📰", "🎨", "🧩"
+    ];
+    
+    // 定義目標標點符號
+    const TARGET_PUNCTUATION = ['，', ',', '。', '.'];
+
+    const outputElement = document.getElementById('output');
+    const copyButton = document.getElementById('copyButton');
+    
+    // 顯示雜湊碼長度資訊
+    document.getElementById('hashcode-display').textContent = HASH_CODE.substring(0, 40) + '...';
+
+    /**
+     * 核心函數：處理文字並插入 Emoji
+     */
+    function processText() {
+        const inputText = document.getElementById('inputText').value;
+        
+        let resultText = "";
+        let hashIndex = 0; // 追蹤雜湊碼的當前位置
+        
+        // 使用 Array.from 處理 Unicode 字符，確保正確迭代
+        const characters = Array.from(inputText);
+
+        for (let i = 0; i < characters.length; i++) {
+            const currentChar = characters[i];
+
+            // A. 將當前字符加入結果字串
+            resultText += currentChar;
+
+            // B. 檢查當前字符是否為目標標點符號
+            if (TARGET_PUNCTUATION.includes(currentChar)) {
+                
+                // C. 從雜湊碼中提取 3 個 Hex 字符
+                const hexSegment = HASH_CODE.substring(hashIndex, hashIndex + 3);
+                
+                // 檢查雜湊碼是否用盡 (我們需要 3 個 Hex 字符)
+                if (hexSegment.length === 3) {
+                    
+                    // D. 將 Hex 轉換為十進制數字
+                    const decimalValue = parseInt(hexSegment, 16); 
+                    
+                    // E. 使用模數運算 (Modulo) 映射到 Emoji 列表的索引
+                    const emojiIndex = decimalValue % EMOJI_LIST.length; 
+                    
+                    // F. 插入 Emoji
+                    resultText += EMOJI_LIST[emojiIndex];
+                    
+                    // G. 移動雜湊碼指標
+                    hashIndex += 3;
+
+                } else {
+                    // 雜湊碼用盡，停止插入 Emoji
+                    break; 
+                }
+            }
+        }
+
+        outputElement.textContent = resultText;
+        // 生成內容後啟用複製按鈕
+        copyButton.disabled = false;
+        copyButton.textContent = '全選並複製結果';
+    }
+
+    /**
+     * 新增函數：將輸出結果全選並複製到剪貼簿
+     */
+    function copyOutput() {
+        const textToCopy = outputElement.textContent;
+
+        if (!textToCopy || textToCopy.trim() === '點擊「插入 Emoji」按鈕後將在此顯示結果...') {
+            alert('請先生成帶有 Emoji 的文章！');
+            return;
+        }
+
+        // 使用現代的 Clipboard API
+        navigator.clipboard.writeText(textToCopy)
+            .then(() => {
+                copyButton.textContent = '✅ 已複製！';
+                // 短暫顯示後恢復
+                setTimeout(() => {
+                    copyButton.textContent = '全選並複製結果';
+                }, 2000);
+            })
+            .catch(err => {
+                console.error('複製失敗:', err);
+                // 備用方法 (舊瀏覽器或非安全環境)
+                fallbackCopy(textToCopy);
+            });
+    }
+
+    /**
+     * 複製的備用方法（如果 navigator.clipboard 失敗）
+     */
+    function fallbackCopy(text) {
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = text;
+        tempTextarea.style.position = 'fixed'; // 防止滾動
+        tempTextarea.style.opacity = 0; // 隱藏
+        document.body.appendChild(tempTextarea);
+        tempTextarea.focus();
+        tempTextarea.select(); // 全選
+
+        try {
+            document.execCommand('copy');
+            copyButton.textContent = '✅ 已複製！ (備用)';
+            setTimeout(() => {
+                copyButton.textContent = '全選並複製結果';
+            }, 2000);
+        } catch (err) {
+            alert('複製失敗，請手動複製！');
+        } finally {
+            document.body.removeChild(tempTextarea);
+        }
+    }
+</script>
+
+</body>
+</html>
