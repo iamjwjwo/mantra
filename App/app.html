@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#120626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>紫微光網 - 善念匯聚行動APP</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN for 3D Globe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-deep: #0e051d;
+            --gold: #FFD700;
+            --gold-dim: rgba(255, 215, 0, 0.45);
+            --gold-glow: rgba(255, 215, 0, 0.6);
+            --purple-deep: #1b0b3a;
+            --purple-accent: #9d4edd;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: #f3ecff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 蓮花綻放與外光圈動畫 */
+        @keyframes lotusAuraPulse {
+            0% {
+                transform: scale(0.85);
+                opacity: 0.95;
+                filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.9));
+            }
+            50% {
+                transform: scale(1.35);
+                opacity: 0.55;
+                filter: drop-shadow(0 0 26px rgba(255, 140, 240, 0.85));
+            }
+            100% {
+                transform: scale(1.85);
+                opacity: 0;
+            }
+        }
+        .animate-bloom {
+            animation: lotusAuraPulse 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        /* 經文光芒呼吸燈 */
+        @keyframes goldBreath {
+            0%, 100% { text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.4); }
+            50% { text-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 35px rgba(230, 100, 255, 0.7); }
+        }
+        .active-verse-glow {
+            animation: goldBreath 2.8s infinite ease-in-out;
+        }
+
+        /* 向上漂浮字體動畫 */
+        @keyframes floatUpFade {
+            0% { transform: translateY(0px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-75px) scale(1.2); opacity: 0; }
+        }
+        .floating-merit {
+            animation: floatUpFade 0.85s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+            pointer-events: none;
+        }
+
+        /* 毛玻璃面板外觀 */
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(34, 15, 68, 0.68), rgba(18, 7, 38, 0.82));
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 215, 0, 0.18);
+            box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        .gold-border-glow {
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.15);
+        }
+
+        /* 登入畫面外發光動畫 */
+        @keyframes emblemGlow {
+            0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6)); }
+            50% { filter: drop-shadow(0 0 24px rgba(220, 100, 255, 0.9)); }
+        }
+        .emblem-pulse {
+            animation: emblemGlow 4s infinite ease-in-out;
+        }
+
+        /* 彈窗毛玻璃背景 */
+        .modal-overlay {
+            background: rgba(10, 3, 22, 0.75);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen max-w-md mx-auto relative select-none">
+
+    <!-- 背景星空畫布 -->
+    <canvas id="bgCanvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+    <!-- ==================== 專屬登入/註冊全螢幕檢視層 ==================== -->
+    <section id="authOverlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0e051d]/90 backdrop-blur-xl">
+        <div class="glass-panel gold-border-glow rounded-3xl p-6 w-full max-w-sm space-y-4 text-center relative overflow-hidden">
+            <!-- 裝飾微光光暈 -->
+            <div class="absolute -top-12 -left-12 w-32 h-32 rounded-full bg-purple-600/30 blur-2xl pointer-events-none"></div>
+            <div class="absolute -bottom-12 -right-12 w-32 h-32 rounded-full bg-amber-500/20 blur-2xl pointer-events-none"></div>
+
+            <!-- 神聖星辰蓮花徽章 -->
+            <div class="flex flex-col items-center space-y-1 relative z-10">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 via-purple-600 to-pink-500 p-[1.5px] emblem-pulse">
+                    <div class="w-full h-full rounded-full bg-[#1b0b3a] flex items-center justify-center">
+                        <svg class="w-9 h-9" viewBox="0 0 100 100" fill="none">
+                            <circle cx="50" cy="50" r="44" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="3 3"/>
+                            <polygon points="50,14 62,38 86,50 62,62 50,86 38,62 14,50 38,38" fill="url(#loginGoldGrad)" opacity="0.9"/>
+                            <circle cx="50" cy="50" r="6" fill="#FFF"/>
+                            <defs>
+                                <linearGradient id="loginGoldGrad" x1="14" y1="14" x2="86" y2="86" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#FFF5C0"/>
+                                    <stop offset="50%" stop-color="#FFD700"/>
+                                    <stop offset="100%" stop-color="#E0AAFF"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+                <h2 class="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-100">
+                    紫微光網
+                </h2>
+                <p class="text-[11px] text-purple-300 tracking-wider">一念成光 · 一願護世</p>
+            </div>
+
+            <!-- 模式切換頁籤 (登入 / 註冊) -->
+            <div class="flex bg-purple-950/70 p-1 rounded-xl border border-purple-800/40 relative z-10">
+                <button id="authTabLogin" onclick="setAuthMode('login')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/50 transition-all">
+                    登入修持
+                </button>
+                <button id="authTabRegister" onclick="setAuthMode('register')" class="flex-1 py-1.5 rounded-lg text-xs font-semibold text-purple-300 hover:text-white transition-all">
+                    註冊加入光網
+                </button>
+            </div>
+
+            <!-- 表單欄位 -->
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-3 text-left relative z-10">
+                <!-- 欄位 1: 姓名 / 法號 -->
+                <div>
+                    <label class="block text-[11px] font-medium text-amber-200/90 mb-1">
+                        <span id="nameFieldLabel">修持者法號 / 姓名</span>
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-3 flex items-center text-purple-400 text-xs">👤</span>
+                        <input id="authNameInput" type="text" required placeholder="請輸入姓名或法號 (例如：普光)" 
+                               class="w-full bg-[#170933]/80 border border-purple-600/40 focus:border-amber-400 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-purple-400/40 outline-none transition-colors">
+                    </div>
+                </div>
+
+                <!-- 欄位 2: 密碼 / 密鑰 -->
+                <div>
+                    <label class="block text-[11px] font-medium text-amber-200/90 mb-1">
+                        修行密鑰 / 密碼
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-3 flex items-center text-purple-400 text-xs">🔐</span>
+                        <input id="authPasswordInput" type="password" required placeholder="請輸入密鑰 (至少6碼)" 
+                               class="w-full bg-[#170933]/80 border border-purple-600/40 focus:border-amber-400 rounded-xl pl-9 pr-9 py-2 text-xs text-white placeholder-purple-400/40 outline-none transition-colors">
+                        <!-- 顯示/隱藏密碼按鈕 -->
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-2.5 flex items-center text-purple-300 hover:text-amber-300 focus:outline-none">
+                            <span id="pwdEyeIcon" class="text-xs">👁️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 錯誤與提示訊息 -->
+                <p id="authMessageText" class="text-[10px] text-pink-400 text-center min-h-[14px]"></p>
+
+                <!-- 登入 / 註冊 按鈕 -->
+                <button type="submit" id="authSubmitBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 text-[#120626] font-bold text-xs tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all">
+                    開啟光明修持
+                </button>
+            </form>
+
+            <!-- 訪客快速入口 -->
+            <div class="pt-1 border-t border-purple-900/40 flex justify-between items-center text-[11px] text-purple-300/80 relative z-10">
+                <button onclick="handleGuestEntry()" class="hover:text-amber-300 transition-colors">
+                    以訪客身分靜心體驗 ›
+                </button>
+                <span class="text-[10px] text-purple-400">一念清淨 · 身心泰然</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 頂部原生 App 狀態列 -->
+    <header class="relative z-20 px-4 pt-3 pb-2.5 border-b border-purple-900/40 bg-[#120626]/85 backdrop-blur-md shrink-0">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-purple-600 flex items-center justify-center p-[1px] shadow-lg shadow-purple-500/25">
+                    <div class="w-full h-full rounded-full bg-[#1b0b3a] flex items-center justify-center">
+                        <span class="text-xs text-amber-300">✦</span>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-100 flex items-center">
+                        紫微光網
+                        <span id="userBadgeName" class="ml-2 text-[10px] px-1.5 py-0.2 rounded-full bg-purple-900/60 border border-amber-400/30 text-amber-300 font-normal">普光</span>
+                    </h1>
+                    <p class="text-[9px] text-purple-300/80 tracking-tighter">一念成光 · 一願護世</p>
+                </div>
+            </div>
+
+            <!-- 即時宇宙幣顯示 & 快捷控制 -->
+            <div class="flex items-center space-x-2.5">
+                <button onclick="switchTab('stats')" class="flex items-center bg-purple-950/80 border border-amber-400/40 rounded-full px-2.5 py-1 active:scale-95 transition-all">
+                    <span class="w-3.5 h-3.5 mr-1 rounded-full bg-amber-400 text-[#120626] font-black text-[9px] flex items-center justify-center">幣</span>
+                    <span id="topBarCoinText" class="text-xs font-semibold text-amber-300 font-mono">8,986,523</span>
+                </button>
+                
+                <!-- 重新開啟登入/切換帳號按鈕 -->
+                <button onclick="openLoginOverlay()" title="帳號切換" class="w-7 h-7 rounded-full bg-purple-900/50 border border-purple-500/30 flex items-center justify-center text-amber-300 active:scale-90 transition-transform">
+                    <span class="text-xs">👤</span>
+                </button>
+
+                <!-- 音效開關按鈕 -->
+                <button id="soundToggleBtn" onclick="toggleSound()" class="w-7 h-7 rounded-full bg-purple-900/50 border border-purple-500/30 flex items-center justify-center text-amber-300 active:scale-90 transition-transform">
+                    <svg id="soundOnIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    </svg>
+                    <svg id="soundOffIcon" class="w-3.5 h-3.5 hidden text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要視圖分頁切換容器 -->
+    <main class="flex-1 overflow-hidden relative z-10 flex flex-col">
+
+        <!-- ==================== TAB 1: 誦經修行 ==================== -->
+        <section id="tab-chant" class="tab-page h-full flex flex-col p-3.5 space-y-2.5 overflow-hidden">
+            <!-- 經典快速標籤膠囊 -->
+            <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-0.5 shrink-0">
+                <button onclick="changeSutra('heart')" id="pill-heart" class="sutra-pill active px-3.5 py-1 rounded-full text-xs font-medium border border-amber-400 bg-amber-400/20 text-amber-200 shrink-0 transition-all">
+                    心經
+                </button>
+                <button onclick="changeSutra('diamond')" id="pill-diamond" class="sutra-pill px-3.5 py-1 rounded-full text-xs font-medium border border-purple-500/40 bg-purple-950/40 text-purple-200 shrink-0 transition-all">
+                    金剛經節錄
+                </button>
+                <button onclick="changeSutra('greatCompassion')" id="pill-greatCompassion" class="sutra-pill px-3.5 py-1 rounded-full text-xs font-medium border border-purple-500/40 bg-purple-950/40 text-purple-200 shrink-0 transition-all">
+                    大悲咒
+                </button>
+            </div>
+
+            <!-- 今日目標進度指示條 -->
+            <div class="glass-panel rounded-xl p-2.5 shrink-0">
+                <div class="flex justify-between items-center text-xs mb-1">
+                    <span class="text-purple-200 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 inline-block mr-1.5 animate-ping"></span>
+                        今日誦讀進度
+                    </span>
+                    <span class="text-amber-300 font-bold" id="chantProgressFraction">120 / 500 次</span>
+                </div>
+                <div class="w-full bg-purple-950/80 rounded-full h-1.5 overflow-hidden border border-purple-800/40 p-[0.5px]">
+                    <div id="chantProgressBar" class="bg-gradient-to-r from-purple-500 via-pink-400 to-amber-300 h-full rounded-full transition-all duration-300" style="width: 24%;"></div>
+                </div>
+            </div>
+
+            <!-- 經文滾動卡片區 -->
+            <div class="flex-1 glass-panel rounded-2xl p-3 overflow-hidden flex flex-col relative min-h-0">
+                <div class="text-center pb-1.5 border-b border-purple-800/30 shrink-0">
+                    <h2 id="sutraDisplayTitle" class="text-xs font-semibold text-amber-200 tracking-wider">
+                        摩訶般若波羅蜜多心經
+                    </h2>
+                </div>
+                <div id="verseScrollContainer" class="flex-1 overflow-y-auto no-scrollbar py-4 space-y-3.5 text-center">
+                    <!-- JS 動態插入經文 -->
+                </div>
+                <!-- 浮動粒子層 -->
+                <div id="floatingParticlesContainer" class="absolute inset-0 pointer-events-none z-30 overflow-hidden"></div>
+            </div>
+
+            <!-- 核心互動區：綻放蓮花法器 -->
+            <div class="glass-panel rounded-2xl p-2.5 flex flex-col items-center relative overflow-hidden shrink-0">
+                <div id="lotusAuraRing" class="absolute w-24 h-24 rounded-full border-2 border-amber-300/80 pointer-events-none opacity-0"></div>
+
+                <div class="relative my-0.5">
+                    <button id="lotusTapBtn" onclick="handleChantTap(event)" class="relative w-24 h-24 rounded-full flex items-center justify-center outline-none active:scale-95 transition-transform duration-100 shadow-[0_0_35px_rgba(157,78,221,0.45)]">
+                        <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-purple-900 via-amber-500/20 to-pink-600/30 blur-sm"></div>
+                        
+                        <!-- 神聖金光蓮花 SVG -->
+                        <svg class="w-20 h-20 filter drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="46" stroke="#FFD700" stroke-width="0.8" stroke-dasharray="2 3" opacity="0.6"/>
+                            <circle cx="50" cy="50" r="42" stroke="#E0AAFF" stroke-width="0.6" opacity="0.4"/>
+                            <path d="M50 78 C32 78 20 66 22 55 C34 68 45 74 50 78 Z" fill="url(#lotusGoldGrad)" opacity="0.85"/>
+                            <path d="M50 78 C68 78 80 66 78 55 C66 68 55 74 50 78 Z" fill="url(#lotusGoldGrad)" opacity="0.85"/>
+                            <path d="M50 76 C25 66 16 48 24 38 C32 54 44 68 50 76 Z" fill="url(#lotusPinkGrad)" opacity="0.9"/>
+                            <path d="M50 76 C75 66 84 48 76 38 C68 54 56 68 50 76 Z" fill="url(#lotusPinkGrad)" opacity="0.9"/>
+                            <path d="M50 74 C34 58 32 38 40 28 C46 44 48 60 50 74 Z" fill="url(#lotusGoldGrad)"/>
+                            <path d="M50 74 C66 58 68 38 60 28 C54 44 52 60 50 74 Z" fill="url(#lotusGoldGrad)"/>
+                            <path d="M50 72 C42 50 42 30 50 18 C58 30 58 50 50 72 Z" fill="url(#lotusCoreGrad)"/>
+                            <circle cx="50" cy="46" r="3.5" fill="#FFF" filter="drop-shadow(0 0 4px #FFD700)"/>
+
+                            <defs>
+                                <linearGradient id="lotusGoldGrad" x1="50" y1="20" x2="50" y2="80" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#FFF9D2"/>
+                                    <stop offset="60%" stop-color="#FFD700"/>
+                                    <stop offset="100%" stop-color="#C57D00"/>
+                                </linearGradient>
+                                <linearGradient id="lotusPinkGrad" x1="50" y1="20" x2="50" y2="80" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#FFC8DD"/>
+                                    <stop offset="50%" stop-color="#FFAAF5"/>
+                                    <stop offset="100%" stop-color="#9D4EDD"/>
+                                </linearGradient>
+                                <linearGradient id="lotusCoreGrad" x1="50" y1="18" x2="50" y2="72" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#FFFFFF"/>
+                                    <stop offset="40%" stop-color="#FFE680"/>
+                                    <stop offset="100%" stop-color="#FF9E00"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 輔助列 -->
+                <div class="flex items-center justify-between w-full px-3 pt-1 text-[11px]">
+                    <button onclick="toggleAutoChant()" id="autoChantBtn" class="flex items-center space-x-1 text-purple-300 hover:text-amber-300">
+                        <span id="autoIndicator" class="w-1.5 h-1.5 rounded-full bg-gray-500 mr-1"></span>
+                        <span id="autoBtnText">自動跟誦</span>
+                    </button>
+                    <div class="flex items-center space-x-1 bg-purple-900/40 rounded-full px-2 py-0.5 border border-purple-700/30">
+                        <span class="text-[9px] text-purple-300">法器:</span>
+                        <select id="soundTypeSelect" onchange="changeSoundType(this.value)" class="bg-transparent text-amber-300 text-[10px] outline-none">
+                            <option value="wood" class="bg-[#1b0b3a] text-purple-200">清脆木魚</option>
+                            <option value="bell" class="bg-[#1b0b3a] text-purple-200">禪定引磬</option>
+                            <option value="bowl" class="bg-[#1b0b3a] text-purple-200">深沉法磬</option>
+                        </select>
+                    </div>
+                    <button onclick="switchTab('dedication')" class="text-amber-300 font-medium flex items-center space-x-0.5">
+                        <span>祈願迴向</span>
+                        <span>›</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: 祈願迴向 (心靈互助牆 + 3D地球) ==================== -->
+        <section id="tab-dedication" class="tab-page h-full hidden flex-col p-3 space-y-2.5 overflow-hidden">
+            <!-- 3D 全球光點地球儀容器 -->
+            <div class="glass-panel rounded-2xl p-2 relative shrink-0 overflow-hidden flex flex-col items-center">
+                <div class="w-full flex items-center justify-between px-2 pb-1 border-b border-purple-800/40 text-xs">
+                    <span class="text-amber-200 font-semibold flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+                        全球善念即時光網地圖
+                    </span>
+                    <span class="text-[10px] text-purple-300">已點亮 <strong id="globeLightCount" class="text-amber-300 font-mono">1,428</strong> 個光柱</span>
+                </div>
+
+                <!-- Three.js 畫布容器 -->
+                <div id="globeContainer" class="w-full h-44 relative overflow-hidden rounded-xl my-1 flex items-center justify-center">
+                    <div id="globeTip" class="absolute bottom-2 left-2 text-[9px] text-purple-300/80 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
+                        拖曳旋轉地球 · 祈願即時發光
+                    </div>
+                </div>
+
+                <!-- 快速祈願發射器 -->
+                <div class="w-full flex items-center space-x-2 pt-1">
+                    <select id="prayerTypeSelect" class="bg-purple-950/80 border border-purple-500/40 rounded-lg text-amber-300 text-[11px] px-2 py-1.5 outline-none shrink-0">
+                        <option value="世界和平">世界和平</option>
+                        <option value="消災免難">消災免難</option>
+                        <option value="親眷安康">親眷安康</option>
+                        <option value="眾生安樂">眾生安樂</option>
+                    </select>
+                    <input id="quickPrayerInput" type="text" placeholder="輸入一句誠摯的祝福與迴向..." class="flex-1 bg-purple-950/70 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-purple-400/50 outline-none focus:border-amber-400">
+                    <button onclick="submitNewPrayer()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-[#120626] font-bold text-xs shrink-0 active:scale-95 shadow-md shadow-amber-500/20">
+                        點亮光點
+                    </button>
+                </div>
+            </div>
+
+            <!-- 祈願祝福牆 (滾動卡片流 + 合十互助) -->
+            <div class="flex-1 glass-panel rounded-2xl p-3 overflow-hidden flex flex-col min-h-0">
+                <div class="flex justify-between items-center pb-2 border-b border-purple-800/40 text-xs">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="text-pink-300">🕊</span>
+                        <span class="font-bold text-white text-xs">心靈互助祈願牆</span>
+                    </div>
+                    <span class="text-[10px] text-purple-300">點擊合十為他人加持 (+5幣)</span>
+                </div>
+
+                <!-- 祝福動態串流 -->
+                <div id="prayerWallFeed" class="flex-1 overflow-y-auto no-scrollbar py-2 space-y-2.5">
+                    <!-- 由 JS 渲染動態祈願卡片 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: 善行日誌與宇宙幣 (善能量經濟學) ==================== -->
+        <section id="tab-deeds" class="tab-page h-full hidden flex-col p-3 space-y-3 overflow-y-auto no-scrollbar">
+            <!-- 善行日誌打卡核心區 -->
+            <div class="glass-panel rounded-2xl p-3.5 space-y-3 border-l-4 border-l-emerald-400">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-sm font-bold text-white flex items-center">
+                            <span class="text-base mr-1.5">🌿</span> 每日善行打卡 (Good Deeds Log)
+                        </h2>
+                        <p class="text-[10px] text-purple-300">記錄身口意善行 · 匯聚人間溫暖 (+30幣)</p>
+                    </div>
+                    <span id="deedsStreakBadge" class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-mono">
+                        連續打卡 12 天
+                    </span>
+                </div>
+
+                <!-- 善行類型按鈕矩陣 -->
+                <div class="grid grid-cols-3 gap-1.5 text-xs">
+                    <button onclick="selectDeedType('隨喜讚嘆', '隨喜他人之善，心生無量歡喜', this)" class="deed-tag active bg-amber-400/20 border border-amber-400 text-amber-200 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">🌸</span>
+                        <span class="text-[11px] font-medium mt-0.5">隨喜讚嘆</span>
+                    </button>
+                    <button onclick="selectDeedType('環境清掃', '維護潔淨環境，掃心地塵埃', this)" class="deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">🧹</span>
+                        <span class="text-[11px] font-medium mt-0.5">環境清掃</span>
+                    </button>
+                    <button onclick="selectDeedType('言語布施', '心懷慈念，口出柔軟愛語', this)" class="deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">💬</span>
+                        <span class="text-[11px] font-medium mt-0.5">言語布施</span>
+                    </button>
+                    <button onclick="selectDeedType('日行一善', '隨手助人一把，行無相之善', this)" class="deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">🤝</span>
+                        <span class="text-[11px] font-medium mt-0.5">日行一善</span>
+                    </button>
+                    <button onclick="selectDeedType('護生戒殺', '敬畏尊重生命，慈悲對待萬物', this)" class="deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">🕊</span>
+                        <span class="text-[11px] font-medium mt-0.5">護生戒殺</span>
+                    </button>
+                    <button onclick="selectDeedType('布施奉獻', '力所能及布施，捨下慳貪妄念', this)" class="deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center">
+                        <span class="text-sm">🪙</span>
+                        <span class="text-[11px] font-medium mt-0.5">布施奉獻</span>
+                    </button>
+                </div>
+
+                <!-- 記錄心得輸入框 -->
+                <div class="space-y-2">
+                    <input id="deedNoteInput" type="text" placeholder="簡記一句今日善舉感受 (選填)..." class="w-full bg-purple-950/70 border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white placeholder-purple-400/50 outline-none focus:border-amber-400">
+                    <button onclick="submitDeedLog()" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-400 text-[#0e051d] font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 active:scale-98">
+                        完成今日善行打卡 (+30 紫微宇宙幣)
+                    </button>
+                </div>
+
+                <!-- 歷史善行日誌紀錄摘要 -->
+                <div class="pt-2 border-t border-purple-800/40">
+                    <div class="text-[11px] text-purple-300 mb-2 font-medium flex justify-between">
+                        <span>近期善行札記</span>
+                        <span class="text-amber-300/80">累計打卡 28 條</span>
+                    </div>
+                    <div id="deedsHistoryContainer" class="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar">
+                        <!-- 由 JS 注入善行日誌卡片 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: 宇宙幣儀表板與用途 (Cosmos Coin Dashboard) ==================== -->
+        <section id="tab-stats" class="tab-page h-full hidden flex-col p-3 space-y-3 overflow-y-auto no-scrollbar">
+            <!-- 能量資產核心卡 -->
+            <div class="glass-panel rounded-2xl p-4 relative overflow-hidden bg-gradient-to-br from-purple-900/70 via-[#1b0b3a] to-amber-950/40 border border-amber-400/30">
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start">
+                        <div class="text-[11px] text-amber-200/90 font-medium">紫微宇宙能量儲備</div>
+                        <span class="text-[10px] bg-amber-400/20 border border-amber-400/40 text-amber-300 px-2 py-0.5 rounded-full">善業回饋憑證</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 my-2">
+                        <span class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-500 font-mono tracking-tight" id="statsCoinNumber">
+                            8,986,523
+                        </span>
+                        <span class="text-xs text-amber-300">枚 宇宙幣</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] text-purple-200/80 pt-1 border-t border-purple-800/40">
+                        <div>今日誦經獲取: <strong class="text-amber-300">+120 幣</strong></div>
+                        <div>善行與祈願: <strong class="text-emerald-300">+35 幣</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 增長歷史流水紀錄 (Transaction Ledger) -->
+            <div class="glass-panel rounded-2xl p-3 space-y-2">
+                <div class="flex justify-between items-center text-xs pb-1.5 border-b border-purple-800/40">
+                    <h3 class="font-bold text-white flex items-center">
+                        <span class="text-amber-300 mr-1.5">📜</span> 宇宙幣收支流水紀錄
+                    </h3>
+                    <span class="text-[10px] text-purple-300">即時清算</span>
+                </div>
+                <div id="coinHistoryLedger" class="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar text-xs">
+                    <!-- 由 JS 渲染流水帳目 -->
+                </div>
+            </div>
+
+            <!-- 宇宙幣三大用途區 (Cosmos Shop / Exchange) -->
+            <div class="space-y-2.5">
+                <h3 class="text-xs font-bold tracking-wider text-amber-300 uppercase flex items-center">
+                    <span class="mr-1.5">✨</span> 宇宙幣善業用途與兌換
+                </h3>
+
+                <!-- 用途 A: 解鎖高級曼陀羅靜心圖像 -->
+                <div class="glass-panel rounded-xl p-3 flex items-center justify-between border-l-4 border-l-purple-400">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-purple-800 to-pink-600 flex items-center justify-center text-xl shadow-md">
+                            ☸
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">解鎖高級曼陀羅靜心幾何</h4>
+                            <p class="text-[10px] text-purple-300">冥想專注加持 · 高解析神聖幾何</p>
+                        </div>
+                    </div>
+                    <button onclick="openMandalaModal()" class="px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-lg text-amber-300 text-xs font-semibold active:scale-95">
+                        預覽 / 100幣
+                    </button>
+                </div>
+
+                <!-- 用途 B: 捐贈給全球慈善基金 -->
+                <div class="glass-panel rounded-xl p-3 flex items-center justify-between border-l-4 border-l-pink-400">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-pink-800 to-amber-600 flex items-center justify-center text-xl shadow-md">
+                            🌱
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">捐贈偏鄉教育與植樹基金</h4>
+                            <p class="text-[10px] text-purple-300">善幣化為具體糧水與書本援助</p>
+                        </div>
+                    </div>
+                    <button onclick="donateToCharity('偏鄉助學護童基金', 300)" class="px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-lg text-amber-300 text-xs font-semibold active:scale-95">
+                        捐贈 300幣
+                    </button>
+                </div>
+
+                <!-- 用途 C: 換取大師心靈指引 -->
+                <div class="glass-panel rounded-xl p-3 flex items-center justify-between border-l-4 border-l-amber-400">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center text-xl shadow-md text-[#120626]">
+                            🪷
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">恭請大師心靈指引箴言</h4>
+                            <p class="text-[10px] text-purple-300">破除當下執念 · 照見本自具足</p>
+                        </div>
+                    </div>
+                    <button onclick="drawMasterGuidance(50)" class="px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-lg text-amber-300 text-xs font-semibold active:scale-95">
+                        開示 / 50幣
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 5: 藏經閣 ==================== -->
+        <section id="tab-sutras" class="tab-page h-full hidden flex-col p-3 space-y-3 overflow-y-auto no-scrollbar">
+            <div class="text-center my-1">
+                <h2 class="text-base font-bold text-amber-200">經典寶庫 (Sutra Library)</h2>
+                <p class="text-xs text-purple-300">誠心受持 圓融無礙 啟迪自性光明</p>
+            </div>
+
+            <div class="space-y-2.5">
+                <!-- 經典 1 -->
+                <div class="glass-panel rounded-xl p-3.5 flex items-center justify-between border-l-4 border-l-amber-400">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-xs sm:text-sm text-white">摩訶般若波羅蜜多心經</h3>
+                        <p class="text-[11px] text-purple-300">大乘佛法般若核心 · 照見五蘊皆空</p>
+                        <div class="text-[10px] text-amber-300/80">
+                            今日已誦: <strong id="libCountHeart" class="text-white">120</strong> 遍 · 累計 3,420 遍
+                        </div>
+                    </div>
+                    <button onclick="changeSutraAndSwitch('heart')" class="px-3 py-1.5 rounded-lg bg-amber-400/20 border border-amber-400/40 text-amber-200 text-xs font-semibold active:scale-95">
+                        修持
+                    </button>
+                </div>
+
+                <!-- 經典 2 -->
+                <div class="glass-panel rounded-xl p-3.5 flex items-center justify-between border-l-4 border-l-purple-400">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-xs sm:text-sm text-white">金剛般若波羅蜜經 (精華節錄)</h3>
+                        <p class="text-[11px] text-purple-300">一切有為法，如夢幻泡影</p>
+                        <div class="text-[10px] text-amber-300/80">
+                            今日已誦: <strong id="libCountDiamond" class="text-white">0</strong> 遍 · 累計 630 遍
+                        </div>
+                    </div>
+                    <button onclick="changeSutraAndSwitch('diamond')" class="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-200 text-xs font-semibold active:scale-95">
+                        修持
+                    </button>
+                </div>
+
+                <!-- 經典 3 -->
+                <div class="glass-panel rounded-xl p-3.5 flex items-center justify-between border-l-4 border-l-purple-400">
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-xs sm:text-sm text-white">千手千眼無礙大悲心陀羅尼</h3>
+                        <p class="text-[11px] text-purple-300">觀音廣大圓滿慈悲陀羅尼咒</p>
+                        <div class="text-[10px] text-amber-300/80">
+                            今日已誦: <strong id="libCountGreat" class="text-white">0</strong> 遍 · 累計 840 遍
+                        </div>
+                    </div>
+                    <button onclick="changeSutraAndSwitch('greatCompassion')" class="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-200 text-xs font-semibold active:scale-95">
+                        修持
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 底部原生 App 導航列 -->
+    <nav class="relative z-20 border-t border-purple-900/50 bg-[#120626]/95 backdrop-blur-lg shrink-0">
+        <div class="grid grid-cols-5 h-14">
+            <!-- 頁籤 1: 誦經修行 -->
+            <button onclick="switchTab('chant')" id="nav-btn-chant" class="nav-tab-btn active flex flex-col items-center justify-center space-y-0.5 text-amber-300 transition-colors">
+                <span class="text-base">🪷</span>
+                <span class="text-[10px] font-medium tracking-tighter">誦經修持</span>
+            </button>
+
+            <!-- 頁籤 2: 祈願迴向 -->
+            <button onclick="switchTab('dedication')" id="nav-btn-dedication" class="nav-tab-btn flex flex-col items-center justify-center space-y-0.5 text-purple-400 hover:text-amber-300 transition-colors">
+                <span class="text-base">🌐</span>
+                <span class="text-[10px] font-medium tracking-tighter">祈願互助</span>
+            </button>
+
+            <!-- 頁籤 3: 善行日誌 -->
+            <button onclick="switchTab('deeds')" id="nav-btn-deeds" class="nav-tab-btn flex flex-col items-center justify-center space-y-0.5 text-purple-400 hover:text-amber-300 transition-colors">
+                <span class="text-base">🌿</span>
+                <span class="text-[10px] font-medium tracking-tighter">善行日誌</span>
+            </button>
+
+            <!-- 頁籤 4: 宇宙幣 -->
+            <button onclick="switchTab('stats')" id="nav-btn-stats" class="nav-tab-btn flex flex-col items-center justify-center space-y-0.5 text-purple-400 hover:text-amber-300 transition-colors">
+                <span class="text-base">🪙</span>
+                <span class="text-[10px] font-medium tracking-tighter">宇宙幣</span>
+            </button>
+
+            <!-- 頁籤 5: 藏經閣 -->
+            <button onclick="switchTab('sutras')" id="nav-btn-sutras" class="nav-tab-btn flex flex-col items-center justify-center space-y-0.5 text-purple-400 hover:text-amber-300 transition-colors">
+                <span class="text-base">📜</span>
+                <span class="text-[10px] font-medium tracking-tighter">藏經閣</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ==================== 互動彈窗模組 ==================== -->
+
+    <!-- 1. 曼陀羅幾何展示彈窗 -->
+    <div id="mandalaModal" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4">
+        <div class="glass-panel gold-border-glow rounded-3xl p-5 max-w-xs w-full text-center space-y-4 relative">
+            <h3 class="text-base font-bold text-amber-200">曼陀羅靜心幾何 (已解鎖)</h3>
+            <div class="w-48 h-48 mx-auto relative flex items-center justify-center">
+                <!-- SVG 神聖曼陀羅幾何動畫 -->
+                <svg class="w-full h-full animate-[spin_20s_linear_infinite]" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" stroke="#FFD700" stroke-width="0.8" fill="none" opacity="0.6"/>
+                    <circle cx="50" cy="50" r="35" stroke="#9d4edd" stroke-width="0.8" fill="none" opacity="0.7"/>
+                    <circle cx="50" cy="50" r="25" stroke="#FFD700" stroke-width="0.8" fill="none" opacity="0.8"/>
+                    <!-- 幾何十二邊花瓣線 -->
+                    <g stroke="#FFD700" stroke-width="0.5" opacity="0.75">
+                        <polygon points="50,5 95,50 50,95 5,50" fill="none"/>
+                        <polygon points="18,18 82,18 82,82 18,82" fill="none"/>
+                        <polygon points="50,15 85,50 50,85 15,50" fill="none"/>
+                    </g>
+                    <circle cx="50" cy="50" r="6" fill="#FFF" filter="drop-shadow(0 0 8px #FFD700)"/>
+                </svg>
+            </div>
+            <p class="text-xs text-purple-200 leading-relaxed">
+                觀想中心光點，呼吸深長平穩。身心如虛空，善念照十方。
+            </p>
+            <button onclick="closeModal('mandalaModal')" class="w-full py-2 bg-purple-900/60 border border-purple-500/40 rounded-xl text-xs text-amber-300 font-bold active:scale-95">
+                隨喜感恩 · 返回
+            </button>
+        </div>
+    </div>
+
+        <!-- 3. 功德捐贈感謝狀彈窗 -->
+        <div id="charityModal" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4">
+            <div class="glass-panel gold-border-glow rounded-3xl p-5 max-w-xs w-full text-center space-y-3 relative">
+                <div class="text-3xl">📜</div>
+                <h3 class="text-base font-bold text-amber-300">無量功德奉獻感謝狀</h3>
+                <p id="charityMessage" class="text-xs text-purple-200 leading-relaxed">
+                    感恩您的菩提善願！已成功扣除 300 枚紫微宇宙幣，轉入「偏鄉助學護童基金」。
+                </p>
+                <div class="text-[11px] text-amber-300/80 font-mono py-1">
+                    善行憑證碼: ZW-<span id="certificateCode">98234</span>
+                </div>
+                <button onclick="closeModal('charityModal')" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-400 text-[#0e051d] font-bold rounded-xl text-xs active:scale-95">
+                    普皆迴向 · 圓滿
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. 登入成功莊嚴迎新彈窗 -->
+        <div id="welcomeAuthModal" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4">
+            <div class="glass-panel gold-border-glow rounded-3xl p-6 max-w-xs w-full text-center space-y-3 relative">
+                <div class="w-14 h-14 mx-auto rounded-full bg-amber-400/20 border border-amber-400 flex items-center justify-center text-3xl">
+                    🌟
+                </div>
+                <h3 class="text-base font-bold text-amber-200">善願相應 · 歡迎歸航</h3>
+                <p class="text-xs text-purple-200 leading-relaxed">
+                    修持者 <span id="welcomeUserName" class="text-amber-300 font-bold">普光</span> 同修，您的光明節點已與紫微宇宙網無縫連接！
+                </p>
+                <div class="bg-purple-950/80 border border-amber-400/30 p-2.5 rounded-xl text-xs text-amber-300 font-mono">
+                    ✦ 獲贈新人善能量禮遇：<strong class="text-white">+100</strong> 宇宙幣
+                </div>
+                <button onclick="closeModal('welcomeAuthModal')" class="w-full py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-[#120626] font-bold text-xs rounded-xl active:scale-95 shadow-md">
+                    開始今日修持
+                </button>
+            </div>
+        </div>
+
+    <!-- ==================== JAVASCRIPT 全域程式碼 ==================== -->
+    <script>
+        /* ================= 狀態庫 ================= */
+        const sutraDatabase = {
+            heart: {
+                id: 'heart',
+                title: '摩訶般若波羅蜜多心經',
+                verses: [
+                    "觀自在菩薩。行深般若波羅蜜多時。",
+                    "照見五蘊皆空。度一切苦厄。",
+                    "舍利子。色不異空。空不異色。",
+                    "色即是空。空即是色。",
+                    "受想行識。亦復如是。",
+					"舍利子。是諸法空相。不生不滅。",
+					"不垢不淨。不增不減。",
+                    "是故空中無色。無受想行識。",
+					"無眼耳鼻舌身意。無色聲香味觸法。",
+					"無眼界。乃至無意識界。",
+					"無無明。亦無無明盡。",
+					"乃至無老死。亦無老死盡",
+					"無苦集滅道。無智亦無得。",    
+                    "以無所得故。菩提薩埵。",
+					"依般若波羅蜜多故。心無罣礙。無罣礙故。",
+					"無有恐怖。遠離顛倒夢想。究竟涅槃。",
+					"三世諸佛。依般若波羅蜜多故。",
+					"得阿耨多羅三藐三菩提。",
+					"故知般若波羅蜜多。是大神咒。是大明咒。",
+					"是無上咒。是無等等咒。能除一切苦。真實不虛。",
+					"故說般若波羅蜜多咒。即說咒曰：",
+                    "揭諦揭諦。波羅揭諦。波羅僧揭諦。菩提薩婆訶。"
+                ]
+            },
+            diamond: {
+                id: 'diamond',
+                title: '金剛般若波羅蜜經 (節錄)',
+                verses: [
+                    "一切有為法。如夢幻泡影。",
+                    "如露亦如電。應作如是觀。",
+                    "凡所有相。皆是虛妄。",
+                    "若見諸相非相。即見如來。",
+                    "不應住色生心。不應住聲香味觸法生心。"
+                ]
+            },
+            greatCompassion: {
+                id: 'greatCompassion',
+                title: '千手千眼無礙大悲心陀羅尼 (精華)',
+                verses: [
+                    "南無喝囉怛那哆囉夜耶。南無阿唎耶。",
+                    "婆盧羯帝爍缽囉耶。菩提薩埵婆耶。",
+                    "摩訶薩埵婆耶。摩訶迦盧尼迦耶。",
+                    "唵。薩皤囉罰曳。數怛那怛寫。"
+                ]
+            }
+        };
+
+        const appState = {
+            currentUser: '普光',
+            authMode: 'login', // 'login' or 'register'
+            isLoggedIn: false,
+            currentSutra: 'heart',
+            activeVerseIndex: 0,
+            todayChants: 120,
+            todayGoal: 500,
+            coins: 8986523,
+            globalChants: 156321,
+            soundEnabled: true,
+            soundType: 'wood',
+            isAutoChanting: false,
+            autoTimer: null,
+            selectedDeed: '隨喜讚嘆',
+            streakDays: 12,
+            globeLightsCount: 1428
+        };
+
+        // 祈願祝福牆資料庫
+        const prayerWallList = [
+            { id: 1, user: "普光居士", tag: "世界和平", text: "祈願戰火平息，願世間每一位孩童都能在平安與愛中成長。", hearts: 238, isBlessed: false, time: "剛剛" },
+            { id: 2, user: "妙蓮善友", tag: "親眷安康", text: "迴向給病榻中的母親，祈願佛光注照，早日康復安泰。", hearts: 182, isBlessed: false, time: "2分鐘前" },
+            { id: 3, user: "行深心靈", tag: "消災免難", text: "祈願近期各地地震與天災化解，受災眾生得獲妥善安頓。", hearts: 312, isBlessed: true, time: "5分鐘前" },
+            { id: 4, user: "虛空一羽", tag: "眾生安樂", text: "願我今日誦經一切功德，遍灑法界，同登覺岸。", hearts: 95, isBlessed: false, time: "8分鐘前" }
+        ];
+
+        // 善行打卡日誌紀錄
+        const deedHistoryList = [
+            { date: "今日 09:30", type: "隨喜讚嘆", note: "看到同修精進持咒，誠心發文讚嘆與隨喜功德。", coins: 30 },
+            { date: "昨日 18:20", type: "環境清掃", note: "自發整理社區樓梯間與枯枝，心境格外開朗。", coins: 30 },
+            { date: "前日 12:15", type: "言語布施", note: "給予疲累的店員一句真誠的祝福與微笑。", coins: 30 }
+        ];
+
+        // 宇宙幣收支流水紀錄
+        const coinLedgerList = [
+            { desc: "誦經滿願功德", change: "+10", date: "今日" },
+            { desc: "完成每日善行打卡", change: "+30", date: "今日" },
+            { desc: "合十為他人祈願集氣", change: "+5", date: "今日" },
+            { desc: "隨喜捐贈偏鄉護童助學", change: "-300", date: "昨日" }
+        ];
+
+        // 大師指引名言句庫
+        const masterQuotes = [
+            "「心若無礙，萬物皆通；若隨外境轉，當下失自性。一念清淨，即是極樂。」",
+            "「行善不必人知，天地自有感應；持戒非為求福，乃在降伏自心。」",
+            "「放下並非放棄，而是不再執著；隨緣並非隨便，而是順應因果。」",
+            "「一燈能除千年暗，一智能滅萬年愚。念念常行善，何處不是淨土。」"
+        ];
+
+        /* ================= 音效合成引擎 (Web Audio API) ================= */
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSynthesizedSound() {
+            if (!appState.soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                if (appState.soundType === 'wood') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(560 + Math.random() * 20, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+                    gain.gain.setValueAtTime(0.7, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (appState.soundType === 'bell') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1480, now);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 1.2);
+                } else if (appState.soundType === 'bowl') {
+                    [220, 440, 660].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq + (Math.random() * 2 - 1), now);
+                        gain.gain.setValueAtTime(0.3 / (idx + 1), now);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 2.2);
+                    });
+                }
+            } catch (e) {
+                console.warn("Audio Context init fallback:", e);
+            }
+        }
+
+        function triggerHaptic() {
+            if ("vibrate" in navigator) {
+                navigator.vibrate(22);
+            }
+        }
+
+        /* ================= 誦經修持核心渲染 ================= */
+        function renderSutraVerses() {
+            const container = document.getElementById('verseScrollContainer');
+            const data = sutraDatabase[appState.currentSutra];
+            document.getElementById('sutraDisplayTitle').innerText = data.title;
+            container.innerHTML = '';
+
+            data.verses.forEach((verse, index) => {
+                const card = document.createElement('div');
+                card.id = `verse-card-${index}`;
+                card.className = `p-2 rounded-xl text-xs sm:text-sm transition-all duration-300 cursor-pointer ${
+                    index === appState.activeVerseIndex
+                        ? 'text-amber-300 font-bold active-verse-glow scale-105 bg-amber-400/10 border border-amber-400/30'
+                        : 'text-purple-300/60 hover:text-purple-200'
+                }`;
+                card.innerText = verse;
+                card.onclick = () => {
+                    appState.activeVerseIndex = index;
+                    renderSutraVerses();
+                    playSynthesizedSound();
+                    triggerHaptic();
+                };
+                container.appendChild(card);
+            });
+
+            const activeElem = document.getElementById(`verse-card-${appState.activeVerseIndex}`);
+            if (activeElem) {
+                activeElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function changeSutra(key) {
+            appState.currentSutra = key;
+            appState.activeVerseIndex = 0;
+            document.querySelectorAll('.sutra-pill').forEach(btn => {
+                btn.className = "sutra-pill px-3.5 py-1 rounded-full text-xs font-medium border border-purple-500/40 bg-purple-950/40 text-purple-200 shrink-0 transition-all";
+            });
+            const activeBtn = document.getElementById(`pill-${key}`);
+            if (activeBtn) {
+                activeBtn.className = "sutra-pill active px-3.5 py-1 rounded-full text-xs font-medium border border-amber-400 bg-amber-400/20 text-amber-200 shrink-0 transition-all";
+            }
+            renderSutraVerses();
+        }
+
+        function changeSutraAndSwitch(key) {
+            changeSutra(key);
+            switchTab('chant');
+        }
+
+        function handleChantTap(event) {
+            playSynthesizedSound();
+            triggerHaptic();
+
+            // 蓮花外光環綻放
+            const aura = document.getElementById('lotusAuraRing');
+            aura.classList.remove('animate-bloom');
+            void aura.offsetWidth;
+            aura.classList.add('animate-bloom');
+
+            // 飄浮粒子
+            spawnFloatingMerit(event);
+
+            const verses = sutraDatabase[appState.currentSutra].verses;
+            appState.activeVerseIndex++;
+            if (appState.activeVerseIndex >= verses.length) {
+                appState.activeVerseIndex = 0;
+                appState.todayChants++;
+                appState.globalChants++;
+                addCoins(10, "誦經圓滿一遍");
+            }
+            renderSutraVerses();
+            updateStatsUI();
+        }
+
+        function spawnFloatingMerit(event) {
+            const container = document.getElementById('floatingParticlesContainer');
+            const floatingEl = document.createElement('div');
+            floatingEl.className = 'absolute text-amber-300 font-extrabold text-xs tracking-wider floating-merit select-none';
+            const rect = container.getBoundingClientRect();
+            const posX = rect.width / 2 + (Math.random() * 60 - 30);
+            const posY = rect.height - 30;
+
+            floatingEl.style.left = `${posX}px`;
+            floatingEl.style.top = `${posY}px`;
+            floatingEl.innerHTML = `+1 善念 <span class="text-[9px] text-pink-300">✦10幣</span>`;
+            container.appendChild(floatingEl);
+            setTimeout(() => {
+                if (floatingEl && floatingEl.parentNode) {
+                    floatingEl.parentNode.removeChild(floatingEl);
+                }
+            }, 850);
+        }
+
+        function toggleAutoChant() {
+            appState.isAutoChanting = !appState.isAutoChanting;
+            const indicator = document.getElementById('autoIndicator');
+            const btnText = document.getElementById('autoBtnText');
+            if (appState.isAutoChanting) {
+                indicator.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse";
+                btnText.innerText = "跟誦中";
+                appState.autoTimer = setInterval(() => {
+                    handleChantTap({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 });
+                }, 2200);
+            } else {
+                indicator.className = "w-1.5 h-1.5 rounded-full bg-gray-500 mr-1";
+                btnText.innerText = "自動跟誦";
+                if (appState.autoTimer) clearInterval(appState.autoTimer);
+            }
+        }
+
+        function changeSoundType(type) {
+            appState.soundType = type;
+            playSynthesizedSound();
+        }
+
+        function toggleSound() {
+            appState.soundEnabled = !appState.soundEnabled;
+            document.getElementById('soundOnIcon').classList.toggle('hidden', !appState.soundEnabled);
+            document.getElementById('soundOffIcon').classList.toggle('hidden', appState.soundEnabled);
+        }
+
+        /* ================= 3D 全球光點地圖 (Three.js) ================= */
+        let scene, camera, renderer, globeMesh, lightGroup;
+        let isDragging = false, previousMousePosition = { x: 0, y: 0 };
+
+        function initThreeGlobe() {
+            const container = document.getElementById('globeContainer');
+            const width = container.clientWidth || 360;
+            const height = container.clientHeight || 176;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.z = 2.7;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // 1. 地球核心球體 (科技深紫深藍)
+            const globeGeo = new THREE.SphereGeometry(1, 32, 32);
+            const globeMat = new THREE.MeshPhongMaterial({
+                color: 0x140832,
+                emissive: 0x090317,
+                specular: 0x8a2be2,
+                shininess: 25,
+                wireframe: false
+            });
+            globeMesh = new THREE.Mesh(globeGeo, globeMat);
+            scene.add(globeMesh);
+
+            // 2. 外圍光網經緯線 (幾何線框球體)
+            const wireGeo = new THREE.SphereGeometry(1.01, 24, 24);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x9d4edd,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.28
+            });
+            const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+            globeMesh.add(wireMesh);
+
+            // 3. 環境光與點光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0xffd700, 1.2, 50);
+            pointLight.position.set(3, 3, 4);
+            scene.add(pointLight);
+
+            // 4. 光柱與光點群組
+            lightGroup = new THREE.Group();
+            globeMesh.add(lightGroup);
+
+            // 預設播撒全球光點 (代表全球善念分佈)
+            for (let i = 0; i < 45; i++) {
+                const lat = (Math.random() - 0.5) * 160;
+                const lon = (Math.random() - 0.5) * 360;
+                addLightPillar(lat, lon, false);
+            }
+
+            // 拖曳旋轉監聽
+            container.addEventListener('mousedown', onPointerDown);
+            container.addEventListener('touchstart', onPointerDown, { passive: true });
+            window.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('touchmove', onPointerMove, { passive: true });
+            window.addEventListener('mouseup', onPointerUp);
+            window.addEventListener('touchend', onPointerUp);
+
+            animateGlobe();
+        }
+
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            const y = radius * Math.cos(phi);
+            return new THREE.Vector3(x, y, z);
+        }
+
+        function addLightPillar(lat, lon, isNew = true) {
+            const position = latLonToVector3(lat, lon, 1.0);
+            
+            // 地面發光小圓點
+            const dotGeo = new THREE.SphereGeometry(0.022, 8, 8);
+            const dotMat = new THREE.MeshBasicMaterial({ color: isNew ? 0xffffff : 0xffd700 });
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            dot.position.copy(position);
+            lightGroup.add(dot);
+
+            // 向上延伸的光柱線條
+            const outerPos = position.clone().multiplyScalar(1.2 + Math.random() * 0.15);
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([position, outerPos]);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: isNew ? 0xffea79 : 0xffaaff,
+                transparent: true,
+                opacity: 0.8
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            lightGroup.add(line);
+        }
+
+        function onPointerDown(e) {
+            isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            previousMousePosition = { x: clientX, y: clientY };
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging || !globeMesh) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const deltaX = clientX - previousMousePosition.x;
+            const deltaY = clientY - previousMousePosition.y;
+
+            globeMesh.rotation.y += deltaX * 0.007;
+            globeMesh.rotation.x += deltaY * 0.007;
+            previousMousePosition = { x: clientX, y: clientY };
+        }
+
+        function onPointerUp() { isDragging = false; }
+
+        function animateGlobe() {
+            requestAnimationFrame(animateGlobe);
+            if (globeMesh && !isDragging) {
+                globeMesh.rotation.y += 0.0035; // 平緩自轉
+            }
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        /* ================= 祈願祝福牆邏輯 ================= */
+        function renderPrayerWall() {
+            const feed = document.getElementById('prayerWallFeed');
+            feed.innerHTML = '';
+            prayerWallList.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "glass-panel rounded-xl p-2.5 border border-purple-800/40 text-xs space-y-1.5";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center text-[10px]">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="text-amber-300 font-semibold">✦ ${p.user}</span>
+                            <span class="bg-purple-900/60 text-purple-200 px-1.5 py-0.5 rounded border border-purple-700/30 text-[9px]">${p.tag}</span>
+                        </div>
+                        <span class="text-purple-300/70">${p.time}</span>
+                    </div>
+                    <p class="text-white text-xs leading-relaxed">${p.text}</p>
+                    <div class="flex justify-between items-center pt-1 border-t border-purple-900/40 text-[11px]">
+                        <span class="text-purple-300 flex items-center">
+                            共振願力: <strong class="text-amber-300 ml-1" id="hearts-cnt-${p.id}">${p.hearts}</strong>
+                        </span>
+                        <div class="flex space-x-2">
+                            <button onclick="blessPrayer(${p.id}, this)" class="px-2.5 py-1 rounded-full ${p.isBlessed ? 'bg-pink-600/30 text-pink-300 border border-pink-400/50' : 'bg-purple-900/50 text-purple-200 border border-purple-600/30'} flex items-center space-x-1 active:scale-95 text-[10px]">
+                                <span>🙏</span>
+                                <span>${p.isBlessed ? '已合十' : '合十共振'}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        function blessPrayer(id, btnElem) {
+            const item = prayerWallList.find(p => p.id === id);
+            if (!item) return;
+            item.hearts++;
+            item.isBlessed = true;
+            document.getElementById(`hearts-cnt-${id}`).innerText = item.hearts;
+            btnElem.className = "px-2.5 py-1 rounded-full bg-pink-600/30 text-pink-300 border border-pink-400/50 flex items-center space-x-1 text-[10px]";
+            btnElem.innerHTML = `<span>🙏</span><span>已合十</span>`;
+            
+            // 互助反饋
+            playSynthesizedSound();
+            triggerHaptic();
+            addCoins(5, "合十為他人祈願集氣");
+        }
+
+        function submitNewPrayer() {
+            const input = document.getElementById('quickPrayerInput');
+            const tagSelect = document.getElementById('prayerTypeSelect');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // 1. 於 3D 地球噴發新光柱
+            const randLat = (Math.random() - 0.5) * 120;
+            const randLon = (Math.random() - 0.5) * 340;
+            addLightPillar(randLat, randLon, true);
+            appState.globeLightsCount++;
+            document.getElementById('globeLightCount').innerText = appState.globeLightsCount.toLocaleString();
+
+            // 2. 插入祝福牆頂部
+            prayerWallList.unshift({
+                id: Date.now(),
+                user: "我願成光",
+                tag: tagSelect.value,
+                text: text,
+                hearts: 1,
+                isBlessed: true,
+                time: "剛剛"
+            });
+            input.value = '';
+            renderPrayerWall();
+            addCoins(15, "送出護世願力");
+            playSynthesizedSound();
+            triggerHaptic();
+        }
+
+        /* ================= 善行日誌打卡 ================= */
+        function selectDeedType(type, hint, btnElem) {
+            appState.selectedDeed = type;
+            document.querySelectorAll('.deed-tag').forEach(b => {
+                b.className = "deed-tag bg-purple-900/40 border border-purple-500/30 text-purple-300 p-2 rounded-xl text-center flex flex-col items-center";
+            });
+            btnElem.className = "deed-tag active bg-amber-400/20 border border-amber-400 text-amber-200 p-2 rounded-xl text-center flex flex-col items-center";
+        }
+
+        function renderDeedsHistory() {
+            const container = document.getElementById('deedsHistoryContainer');
+            container.innerHTML = '';
+            deedHistoryList.forEach(d => {
+                const el = document.createElement('div');
+                el.className = "p-2 rounded-xl bg-purple-950/50 border border-purple-800/40 text-[11px] flex justify-between items-center";
+                el.innerHTML = `
+                    <div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="text-amber-300 font-bold">✦ ${d.type}</span>
+                            <span class="text-[9px] text-purple-400">${d.date}</span>
+                        </div>
+                        <p class="text-purple-200 text-[10px] mt-0.5">${d.note}</p>
+                    </div>
+                    <span class="text-emerald-400 font-bold text-xs shrink-0">+${d.coins}幣</span>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function submitDeedLog() {
+            const noteInput = document.getElementById('deedNoteInput');
+            const note = noteInput.value.trim() || `誠心落實「${appState.selectedDeed}」，願以善念潤澤人間。`;
+
+            deedHistoryList.unshift({
+                date: "剛剛",
+                type: appState.selectedDeed,
+                note: note,
+                coins: 30
+            });
+            noteInput.value = '';
+            appState.streakDays++;
+            document.getElementById('deedsStreakBadge').innerText = `連續打卡 ${appState.streakDays} 天`;
+            renderDeedsHistory();
+            addCoins(30, `完成善行打卡: ${appState.selectedDeed}`);
+            playSynthesizedSound();
+            triggerHaptic();
+        }
+
+        /* ================= 紫微宇宙幣儀表板與兌換 ================= */
+        function addCoins(amount, desc) {
+            appState.coins += amount;
+            coinLedgerList.unshift({
+                desc: desc,
+                change: `+${amount}`,
+                date: "剛剛"
+            });
+            updateStatsUI();
+            renderCoinLedger();
+        }
+
+        function deductCoins(amount, desc) {
+            if (appState.coins < amount) return false;
+            appState.coins -= amount;
+            coinLedgerList.unshift({
+                desc: desc,
+                change: `-${amount}`,
+                date: "剛剛"
+            });
+            updateStatsUI();
+            renderCoinLedger();
+            return true;
+        }
+
+        function renderCoinLedger() {
+            const ledgerEl = document.getElementById('coinHistoryLedger');
+            if (!ledgerEl) return;
+            ledgerEl.innerHTML = '';
+            coinLedgerList.slice(0, 5).forEach(item => {
+                const isAdd = item.change.startsWith('+');
+                const row = document.createElement('div');
+                row.className = "flex justify-between items-center py-1 border-b border-purple-900/30 text-[11px]";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-1.5">
+                        <span class="${isAdd ? 'text-amber-400' : 'text-pink-400'}">●</span>
+                        <span class="text-purple-200">${item.desc}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[9px] text-purple-400">${item.date}</span>
+                        <span class="font-bold ${isAdd ? 'text-amber-300' : 'text-pink-300'}">${item.change} 幣</span>
+                    </div>
+                `;
+                ledgerEl.appendChild(row);
+            });
+        }
+
+        function openMandalaModal() {
+            if (deductCoins(100, "解鎖高級曼陀羅靜心幾何")) {
+                document.getElementById('mandalaModal').classList.remove('hidden');
+                playSynthesizedSound();
+            }
+        }
+
+        function drawMasterGuidance(cost) {
+            if (deductCoins(cost, "請領大師心靈指引箴言")) {
+                const randomQuote = masterQuotes[Math.floor(Math.random() * masterQuotes.length)];
+                document.getElementById('guidanceQuoteText').innerText = randomQuote;
+                document.getElementById('guidanceModal').classList.remove('hidden');
+                playSynthesizedSound();
+            }
+        }
+
+        function donateToCharity(fundName, cost) {
+            if (deductCoins(cost, `捐贈${fundName}`)) {
+                document.getElementById('charityMessage').innerText = `感恩您的菩提善願！已成功扣除 ${cost} 枚紫微宇宙幣，轉入「${fundName}」，化為實體守護善行。`;
+                document.getElementById('certificateCode').innerText = Math.floor(10000 + Math.random() * 90000);
+                document.getElementById('charityModal').classList.remove('hidden');
+                playSynthesizedSound();
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        /* ================= 登入 / 註冊 系統邏輯 ================= */
+        function setAuthMode(mode) {
+            appState.authMode = mode;
+            const tabLogin = document.getElementById('authTabLogin');
+            const tabRegister = document.getElementById('authTabRegister');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const nameLabel = document.getElementById('nameFieldLabel');
+            const msg = document.getElementById('authMessageText');
+            msg.innerText = '';
+
+            if (mode === 'login') {
+                tabLogin.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/50 transition-all";
+                tabRegister.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold text-purple-300 hover:text-white transition-all";
+                submitBtn.innerText = "開啟光明修持";
+                nameLabel.innerText = "修持者法號 / 姓名";
+            } else {
+                tabRegister.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/50 transition-all";
+                tabLogin.className = "flex-1 py-1.5 rounded-lg text-xs font-semibold text-purple-300 hover:text-white transition-all";
+                submitBtn.innerText = "註冊並獲取善緣禮";
+                nameLabel.innerText = "設定法號 / 姓名";
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('authPasswordInput');
+            const eyeIcon = document.getElementById('pwdEyeIcon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.innerText = '🙈';
+            } else {
+                pwdInput.type = 'password';
+                eyeIcon.innerText = '👁️';
+            }
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('authNameInput');
+            const pwdInput = document.getElementById('authPasswordInput');
+            const msg = document.getElementById('authMessageText');
+
+            const name = nameInput.value.trim();
+            const pwd = pwdInput.value.trim();
+
+            if (!name) {
+                msg.innerText = "請輸入修持者姓名或法號";
+                return;
+            }
+            if (pwd.length < 6) {
+                msg.innerText = "密鑰長度至少需 6 個字元";
+                return;
+            }
+
+            // 成功驗證流程
+            appState.currentUser = name;
+            appState.isLoggedIn = true;
+            document.getElementById('userBadgeName').innerText = name;
+            document.getElementById('welcomeUserName').innerText = name;
+
+            // 關閉登入層
+            document.getElementById('authOverlay').classList.add('hidden');
+
+            // 贈予新手/迎新禮物 100 宇宙幣
+            addCoins(100, appState.authMode === 'login' ? "每日登入善業加持" : "新法友加入光網迎新禮");
+
+            // 提示音與彈窗
+            playSynthesizedSound();
+            triggerHaptic();
+            document.getElementById('welcomeAuthModal').classList.remove('hidden');
+        }
+
+        function handleGuestEntry() {
+            appState.currentUser = "訪客同修";
+            appState.isLoggedIn = true;
+            document.getElementById('userBadgeName').innerText = "訪客同修";
+            document.getElementById('welcomeUserName').innerText = "訪客同修";
+            document.getElementById('authOverlay').classList.add('hidden');
+            playSynthesizedSound();
+            triggerHaptic();
+        }
+
+        function openLoginOverlay() {
+            document.getElementById('authOverlay').classList.remove('hidden');
+        }
+
+        function updateStatsUI() {
+            const formattedCoins = appState.coins.toLocaleString();
+            document.getElementById('topBarCoinText').innerText = formattedCoins;
+            document.getElementById('statsCoinNumber').innerText = formattedCoins;
+
+            const percent = Math.min(Math.round((appState.todayChants / appState.todayGoal) * 100), 100);
+            document.getElementById('chantProgressFraction').innerText = `${appState.todayChants} / ${appState.todayGoal} 次`;
+            document.getElementById('chantProgressBar').style.width = `${percent}%`;
+            document.getElementById('libCountHeart').innerText = appState.todayChants;
+        }
+
+        /* ================= 頁籤切換 ================= */
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-page').forEach(p => {
+                p.classList.add('hidden');
+                p.classList.remove('flex');
+            });
+            document.querySelectorAll('.nav-tab-btn').forEach(b => {
+                b.classList.remove('active', 'text-amber-300');
+                b.classList.add('text-purple-400');
+            });
+
+            const activePage = document.getElementById(`tab-${tabId}`);
+            if (activePage) {
+                activePage.classList.remove('hidden');
+                activePage.classList.add('flex');
+            }
+            const activeBtn = document.getElementById(`nav-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'text-amber-300');
+                activeBtn.classList.remove('text-purple-400');
+            }
+
+            // 若切換至祈願互助分頁，調整 3D 地球視角
+            if (tabId === 'dedication' && renderer && camera) {
+                setTimeout(() => {
+                    const c = document.getElementById('globeContainer');
+                    if (c) {
+                        renderer.setSize(c.clientWidth, c.clientHeight);
+                        camera.aspect = c.clientWidth / c.clientHeight;
+                        camera.updateProjectionMatrix();
+                    }
+                }, 50);
+            }
+        }
+
+        /* ================= 背景星空動畫 ================= */
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let bgStars = [];
+
+        function resizeBg() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            bgStars = [];
+            for (let i = 0; i < 45; i++) {
+                bgStars.push({
+                    x: Math.random() * bgCanvas.width,
+                    y: Math.random() * bgCanvas.height,
+                    radius: Math.random() * 1.3 + 0.3,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.012 + 0.005
+                });
+            }
+        }
+
+        function renderStars() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgStars.forEach(s => {
+                s.alpha += s.speed;
+                if (s.alpha > 1 || s.alpha < 0.1) s.speed = -s.speed;
+                bgCtx.fillStyle = `rgba(255, 230, 210, ${Math.abs(s.alpha)})`;
+                bgCtx.beginPath();
+                bgCtx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                bgCtx.fill();
+            });
+            requestAnimationFrame(renderStars);
+        }
+
+        /* ================= 應用程式初始化 ================= */
+        window.addEventListener('resize', () => {
+            resizeBg();
+            const c = document.getElementById('globeContainer');
+            if (c && renderer && camera) {
+                renderer.setSize(c.clientWidth, c.clientHeight);
+                camera.aspect = c.clientWidth / c.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            resizeBg();
+            renderStars();
+            renderSutraVerses();
+            renderPrayerWall();
+            renderDeedsHistory();
+            renderCoinLedger();
+            updateStatsUI();
+            initThreeGlobe();
+        });
+    </script>
+</body>
+</html>
